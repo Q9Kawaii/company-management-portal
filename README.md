@@ -1,5 +1,7 @@
 # Company Management Portal
 
+**Live demo:** https://company-management-portal-five.vercel.app
+
 An internal web portal for managing people and projects across a company, built with React, Vite, and Supabase. Every user signs in with a company ID (for example `EMP0003`) and sees a dashboard for their role: **Admin**, **HR**, **Employee**, or **Intern**.
 
 Admins and HR manage accounts and set up project teams. Employees and interns work inside the projects they are assigned to, through a shared project timeline with threaded replies and file attachments.
@@ -166,6 +168,14 @@ A typical project flow:
 | `npm run build` | Create a production build in `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run lint` | Run ESLint over the project |
+
+### Deploying to Vercel
+
+The repo includes a `vercel.json` that builds with Vite and sends every route to `index.html`, so links like `/hr/projects` work when opened or refreshed.
+
+1. Import the repo in Vercel (or run `npx vercel` in the project folder).
+2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under **Project → Settings → Environment Variables**.
+3. Add the deployed URL to the `ALLOWED_ORIGINS` Edge Function secret in Supabase, or sign-in will be blocked by CORS.
 
 ---
 
