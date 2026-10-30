@@ -349,7 +349,7 @@ export default function HRProjects() {
                             ? 'border-violet-400/30 bg-violet-500/15 text-violet-200'
                             : status === 'archived'
                               ? 'border-slate-700 bg-slate-800 text-slate-300'
-                              : status === 'active' || status === 'in_progress'
+                              : status === 'active' || status === 'in_progress' || status === 'in progress'
                                 ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
                                 : 'border-amber-400/30 bg-amber-500/15 text-amber-200'
                       }`}

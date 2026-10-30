@@ -224,7 +224,10 @@ export default function UserForm({
           value={formData.email}
           onChange={handleChange}
           placeholder="name@company.com"
-          disabled={loading}
+          // Sign-in uses the Supabase Auth email, which a profile update can't
+          // change, so the email is locked after the account is created.
+          disabled={loading || isEditing}
+          readOnly={isEditing}
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? 'user-email-error' : undefined}
           className={inputClass('email')}
@@ -289,19 +292,16 @@ export default function UserForm({
         />
       </div>
 
+      {/* Passwords live in Supabase Auth and can only be set at creation
+          (through the create-user Edge Function); profile edits can't change them. */}
+      {!isEditing && (
       <div>
         <label
           htmlFor="user-password"
           className="block text-sm font-medium text-slate-200"
         >
-          Password {!isEditing && <span className="text-red-400">*</span>}
+          Password <span className="text-red-400">*</span>
         </label>
-
-        {isEditing && (
-          <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Leave blank to keep the existing password unchanged.
-          </p>
-        )}
 
         <div className="relative mt-1">
           <input
@@ -311,16 +311,12 @@ export default function UserForm({
             autoComplete="new-password"
             value={formData.password}
             onChange={handleChange}
-            placeholder={isEditing ? 'Enter new password' : 'Create password'}
+            placeholder="Create password"
             disabled={loading}
             minLength={MIN_PASSWORD_LENGTH}
             aria-invalid={Boolean(errors.password)}
             aria-describedby={
-              errors.password
-                ? 'user-password-error'
-                : !isEditing
-                  ? 'user-password-hint'
-                  : undefined
+              errors.password ? 'user-password-error' : 'user-password-hint'
             }
             className={`${inputClass('password')} pr-20`}
           />
@@ -342,12 +338,11 @@ export default function UserForm({
           </p>
         )}
 
-        {!isEditing && (
-          <p id="user-password-hint" className="mt-1.5 text-xs text-slate-400">
-            Use at least 12 characters for your password.
-          </p>
-        )}
+        <p id="user-password-hint" className="mt-1.5 text-xs text-slate-400">
+          Use at least 12 characters for your password.
+        </p>
       </div>
+      )}
 
       <div className="flex flex-col-reverse gap-3 border-t border-slate-800 pt-5 sm:flex-row sm:justify-end">
         <button

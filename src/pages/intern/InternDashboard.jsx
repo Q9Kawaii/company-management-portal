@@ -44,8 +44,8 @@ export default function InternDashboard() {
       try {
         const { data: memberships, error: membershipError } = await supabase
           .from('project_members')
-          .select('project_id, user_id, profile_id, role')
-          .or(`user_id.eq.${user.id},profile_id.eq.${user.id}`);
+          .select('project_id, user_id, role')
+          .eq('user_id', user.id);
 
         if (membershipError) throw membershipError;
 
@@ -89,13 +89,13 @@ export default function InternDashboard() {
         );
 
         const visibleProjects = allProjects.filter((project) =>
-          ['published', 'active', 'in_progress', 'completed', 'archived'].includes(
+          ['published', 'active', 'in_progress', 'in progress', 'completed', 'archived'].includes(
             String(project.status || '').toLowerCase()
           )
         );
 
         const activeProjects = visibleProjects.filter((project) =>
-          ['published', 'active', 'in_progress'].includes(
+          ['published', 'active', 'in_progress', 'in progress'].includes(
             String(project.status || '').toLowerCase()
           )
         );
@@ -116,7 +116,7 @@ export default function InternDashboard() {
           const { data: projectMemberships, error: projectMembershipError } =
             await supabase
               .from('project_members')
-              .select('project_id, user_id, profile_id, role')
+              .select('project_id, user_id, role')
               .eq('project_id', selectedCurrentProject.id);
 
           if (projectMembershipError) throw projectMembershipError;
@@ -124,9 +124,7 @@ export default function InternDashboard() {
           const memberIds = new Set(
             (projectMemberships || [])
               .flatMap((membership) => [
-                membership.user_id,
-                membership.profile_id,
-              ])
+                membership.user_id,              ])
               .filter(Boolean)
           );
 
@@ -138,7 +136,8 @@ export default function InternDashboard() {
             .from('profiles')
             .select(
               'id, user_id, name, email, role, department, is_active'
-            );
+            )
+          .in('id', [...memberIds]);
 
           if (profilesError) throw profilesError;
 
@@ -529,7 +528,7 @@ export default function InternDashboard() {
                 label="Published / Active"
                 value={
                   projects.filter((project) =>
-                    ['published', 'active', 'in_progress'].includes(
+                    ['published', 'active', 'in_progress', 'in progress'].includes(
                       String(project.status || '').toLowerCase()
                     )
                   ).length

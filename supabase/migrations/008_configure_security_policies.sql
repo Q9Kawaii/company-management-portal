@@ -1,4 +1,7 @@
 -- supabase/migrations/008_configure_security_policies.sql
+--
+-- Baseline Row Level Security. Several of these policies are tightened
+-- or replaced in 009 and 010; read those alongside this file.
 
 -- =========================================================
 -- SECURITY HELPER FUNCTIONS
@@ -177,7 +180,8 @@ ON public.projects
 FOR DELETE
 TO authenticated
 USING (
-    public.current_user_role() = 'Admin'
+    public.is_active_user()
+    AND public.current_user_role() IN ('Admin', 'HR')
 );
 
 
@@ -389,6 +393,19 @@ USING (
 WITH CHECK (
     public.is_active_user()
     AND user_id = auth.uid()
+    AND (
+        (
+            timeline_type = 'Main'
+            AND (
+                public.can_manage_projects()
+                OR public.is_project_member(project_id)
+            )
+        )
+        OR (
+            timeline_type = 'Staff'
+            AND public.can_manage_projects()
+        )
+    )
 );
 
 

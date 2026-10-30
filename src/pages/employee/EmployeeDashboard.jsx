@@ -154,7 +154,7 @@ export default function EmployeeDashboard() {
   }
 
   const currentProjects = projects.filter((project) =>
-    ['published', 'active', 'in_progress'].includes(
+    ['published', 'active', 'in_progress', 'in progress'].includes(
       String(project.status || '').toLowerCase()
     )
   );

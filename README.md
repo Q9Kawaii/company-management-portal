@@ -23,16 +23,17 @@ Admins and HR manage accounts and set up project teams. Employees and interns wo
 - Two project categories: **Main Project** and **Intern-Based**.
 - Project lifecycle: `Draft → Published → In Progress → Completed → Archived`.
 - Assign a team lead and team members, review the setup, then publish it to the team.
+- People already on an active project are hidden from new teams, so nobody is double-booked. Archiving a project frees its team automatically.
 - Employees and interns see their current project and past projects.
 
 ### Project timelines
-- **Main timeline:** the whole team can post updates and reply.
+- **Main timeline:** the whole team can post updates, reply, and attach files.
 - **Staff timeline:** a private channel that only Admin and HR can see.
-- Threaded replies, file attachments up to 10 MB (images, PDF, Office documents, ZIP), and live updates through Supabase Realtime.
+- Threaded replies and file attachments up to 10 MB (images, PDF, Office documents, ZIP).
 - Attachments live in a private storage bucket and are opened through short-lived signed URLs.
 
 ### Notifications
-- In-app notifications with unread counts, mark-as-read, and live delivery through Supabase Realtime.
+- Team members are notified when they're assigned to a published project, and see recent notifications with unread markers on their dashboard.
 
 ---
 
@@ -43,7 +44,7 @@ Admins and HR manage accounts and set up project teams. Employees and interns wo
 | Frontend | [React 19](https://react.dev), [React Router 7](https://reactrouter.com) |
 | Build tool | [Vite 8](https://vite.dev) |
 | Styling | [Tailwind CSS 4](https://tailwindcss.com) and custom CSS |
-| Backend | [Supabase](https://supabase.com): PostgreSQL, Auth, Storage, Realtime, Edge Functions |
+| Backend | [Supabase](https://supabase.com): PostgreSQL, Auth, Storage, Edge Functions (Deno) |
 | Utilities | [date-fns](https://date-fns.org) |
 | Linting | ESLint 10 with the React Hooks and React Refresh plugins |
 
@@ -84,31 +85,49 @@ Run the SQL files in `supabase/migrations/` **in numerical order**, either in th
 
 | Migration | Purpose |
 | --- | --- |
-| `001_create_profiles.sql` | User profiles linked to `auth.users`, plus the `updated_at` trigger |
+| `001_create_profiles.sql` | User profiles linked to `auth.users` (`user_id` holds the company ID), plus the `updated_at` trigger |
 | `002_create_projects.sql` | Projects with category, status, lead, and dates |
 | `003_create_project_members.sql` | Project team assignments (Lead or Member) |
-| `004_create_timelines.sql` | Main and Staff timelines per project |
+| `004_create_timelines.sql` | Main and Staff timelines per project, and their entries and replies |
 | `005_create_attachments.sql` | Attachment metadata for timeline entries |
 | `006_create_notifications.sql` | In-app notifications |
 | `007_create_user_id_generation.sql` | Per-role counters and the `generate_user_code()` function |
-| `008_configure_security_policies.sql` | Row Level Security policies and helper functions |
+| `008_configure_security_policies.sql` | Baseline Row Level Security policies and helper functions |
+| `009_fix_access_and_integrity.sql` | Tightened access rules, the `project-attachments` storage bucket and its policies, and triggers that create timelines, keep `profiles.assigned` in sync, and record who published a project |
+| `010_restrict_staff_timeline_rows.sql` | Hides Staff timelines from non-staff entirely |
 
 Then run `supabase/seed.sql` to initialise the ID counters.
 
-> **Note:** migrations `005` and `008` reference a `timeline_entries` table that is not yet created by any migration in this repo. Create it before running `005`. The columns the app uses are listed in `src/services/timelineService.js` (`id`, `project_id`, `timeline_id`, `parent_id`, `user_id`, `content`, `timeline_type`, `created_at`, `updated_at`).
+### 4. Deploy the Edge Functions
 
-### 4. Create storage and Edge Functions
+Account creation and company-ID sign-in need privileged keys, so they run as Edge Functions in `supabase/functions/`:
 
-1. **Storage:** create a **private** bucket named `project-attachments`.
-2. **Realtime:** enable Realtime on the `timeline_entries` and `notifications` tables.
-3. **Edge Functions:** the frontend calls two functions that hold the privileged logic and are not included in this repo:
-   - `company-login`: takes `{ userId, password }`, resolves the company ID to the account's email, signs in through Supabase Auth, and returns `{ session }`.
-   - `create-user`: takes `{ name, email, role, department, password? }`, creates the Auth user with the service role key, generates a company ID, inserts the profile, and returns `{ user }`.
+| Function | What it does | `verify_jwt` |
+| --- | --- | --- |
+| `company-login` | Takes `{ userId, password }` (a company ID or email), resolves it to the account's email, signs in through Supabase Auth, and returns `{ session }` | `true` |
+| `create-user` | Called by Admin/HR. Generates a company ID, creates the Auth user, inserts the profile, and returns `{ user }` | `false` (checks the caller's token itself) |
+
+```bash
+supabase functions deploy company-login
+supabase functions deploy create-user --no-verify-jwt
+```
+
+Set these secrets (**Dashboard → Edge Functions → Secrets**, or `supabase secrets set`):
+
+| Secret | Used by | Value |
+| --- | --- | --- |
+| `PORTAL_SUPABASE_SECRET_KEY` | `company-login` | Your project's secret / service role key |
+| `PROJECT_ANON_KEY` | `create-user` | Your project's anon key |
+| `ALLOWED_ORIGINS` | both (optional) | Comma-separated frontend URLs, e.g. `http://localhost:5173,https://portal.example.com`. Defaults to `http://localhost:5173`. |
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.
+
+> When you deploy the frontend, add its URL to `ALLOWED_ORIGINS`. Otherwise the browser blocks sign-in with a CORS error.
 
 ### 5. Create the first Admin
 
 1. In **Supabase Dashboard → Authentication → Users**, create a user with an email and password.
-2. Copy that user's UUID, then uncomment and edit the example `INSERT` at the bottom of `supabase/seed.sql`, and run it.
+2. Copy that user's UUID, then uncomment and edit the example at the bottom of `supabase/seed.sql`, and run it.
 3. Sign in to the portal with the company ID `ADM0001`.
 
 ### 6. Run the app
@@ -127,15 +146,17 @@ Open http://localhost:5173.
 | --- | --- | --- |
 | **Admin** | `ADM####` | Manage HR, employees, and interns; view and manage every project; use both timelines; delete attachments and notifications |
 | **HR** | `HR####` | Manage employees and interns; create, staff, review, and publish projects; use both timelines |
-| **Employee** | `EMP####` | View the current and past projects they are assigned to; post, reply, and upload on the Main timeline |
+| **Employee** | `EMP####` | View the current and past projects they are assigned to; post, reply, upload, and delete their own posts on the Main timeline |
 | **Intern** | `INT####` | Same as Employee, scoped to their assigned projects |
 
 A typical project flow:
 
-1. HR opens **Projects → Create**, picks a category, and assigns a lead and team members. The project is saved as a **Draft**.
-2. HR reviews the setup on the review page and **publishes** it.
+1. HR opens **Projects → Create**, picks a category, and assigns a lead and team members. The project is saved as a **Draft**, and the team is marked as assigned.
+2. HR reviews the setup on the review page and **publishes** it. The team is notified.
 3. The team sees the project under **Current Project** and works on the Main timeline. Admin and HR coordinate privately on the Staff timeline.
-4. When the project is complete, it moves to **Past Projects** for everyone on the team.
+4. When HR or Admin archives the project, it moves to **Past Projects** for everyone on the team, and they become available for new projects.
+
+> Account emails and passwords are set when an account is created and can't be changed from the portal, because sign-in depends on the matching Supabase Auth account. Change them in **Supabase Dashboard → Authentication** if needed.
 
 ### Available scripts
 
@@ -162,7 +183,7 @@ company-management-portal/
 │   │   ├── timeline/           # Timeline feed, entries, composer, attachment uploader
 │   │   └── users/              # User form, table, search, deactivate dialog
 │   ├── context/                # AuthContext (session and profile), NotificationContext
-│   ├── hooks/                  # useAuth, useNotifications, useProjects, useTimeline
+│   ├── hooks/                  # useAuth, useNotifications (toasts), useTimeline
 │   ├── layouts/                # Admin, HR, Member (Employee/Intern), and Auth layouts
 │   ├── lib/
 │   │   └── supabase.js         # Supabase client, configured from env variables
@@ -174,14 +195,17 @@ company-management-portal/
 │   │   ├── hr/                 # HR dashboard, people, project create/details/review
 │   │   ├── intern/             # Intern dashboard, current and past projects
 │   │   └── AboutUs.jsx
-│   ├── services/               # Data access for auth, users, projects, timelines,
-│   │                           # storage, and notifications (all Supabase calls live here)
+│   ├── services/               # Timeline and attachment storage access (pages query
+│   │                           # Supabase directly for users and projects)
 │   ├── styles/                 # Global stylesheet
-│   ├── utils/                  # Permissions matrix, validators, date formatting, ID helpers
+│   ├── utils/                  # Permissions matrix, validators, date formatting
 │   ├── App.jsx                 # Route table and role-based redirects
 │   └── main.jsx                # App entry point
 ├── supabase/
-│   ├── migrations/             # Ordered SQL schema and RLS policy migrations
+│   ├── functions/
+│   │   ├── company-login/      # Edge Function: sign in with a company ID
+│   │   └── create-user/        # Edge Function: Admin/HR create accounts
+│   ├── migrations/             # Ordered SQL schema, RLS policies, and triggers
 │   └── seed.sql                # ID counters and first-admin template
 ├── .env.example                # Template for required environment variables
 ├── eslint.config.js
@@ -195,8 +219,11 @@ company-management-portal/
 ## Security notes
 
 - Row Level Security is enabled on every table. The frontend permission checks in `src/utils/permissions.js` only shape the UI; the database policies are what actually enforce access.
+- The Staff timeline, its entries, and its attachments are readable only by Admin and HR, enforced in the database and in storage.
+- HR can only edit Employee and Intern profiles. Nobody can change an account's email or company ID from the client.
 - Account creation and company-ID login run in Edge Functions, so passwords and the service role key never reach the browser.
-- Attachments sit in a private bucket and are opened through signed URLs that expire after 5 minutes by default.
+- Attachments sit in a private bucket and are opened through signed URLs that expire after one hour.
+- Recommended: turn on **leaked password protection** in **Supabase Dashboard → Authentication → Settings**.
 
 ---
 

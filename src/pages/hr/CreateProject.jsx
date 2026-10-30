@@ -189,8 +189,6 @@ export default function CreateProject() {
         status: 'Draft',
       };
 
-      console.log('Project payload before insert:', projectPayload);
-
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .insert(projectPayload)
@@ -242,6 +240,7 @@ export default function CreateProject() {
         .update({
           status: 'Published',
           published_at: new Date().toISOString(),
+          published_by: user?.id || null,
         })
         .eq('id', createdProject.id)
         .select('*')
@@ -249,25 +248,9 @@ export default function CreateProject() {
 
       if (projectError) throw projectError;
 
+      // profiles.assigned is kept in sync by a database trigger whenever
+      // memberships or project statuses change, so it isn't updated here.
       const recipients = [...new Set([values.leadId, ...values.memberIds])];
-
-      // Mark the team lead and team members as assigned.
-      const { error: assignmentError } = await supabase
-        .from('profiles')
-        .update({ assigned: true })
-        .in('id', recipients);
-
-      if (assignmentError) {
-        console.error('Failed to update assignment status:', assignmentError);
-
-        notifications.error(
-          'Project was published, but user assignment status could not be updated. Please retry.'
-        );
-
-        setSubmitting(false);
-        setPublishDialogOpen(false);
-        return;
-      }
 
       if (recipients.length > 0) {
         const notificationRows = recipients.map((recipientId) => ({

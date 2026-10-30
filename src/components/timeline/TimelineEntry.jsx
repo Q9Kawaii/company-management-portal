@@ -95,7 +95,10 @@ function AttachmentList({ attachments = [] }) {
           attachment.signedUrl ||
           attachment.signed_url;
 
+        const size = attachment.file_size ?? attachment.size;
+
         const isImage =
+          attachment.file_type?.startsWith('image/') ||
           attachment.mime_type?.startsWith('image/') ||
           attachment.content_type?.startsWith('image/') ||
           /\.(png|jpe?g|gif|webp)$/i.test(name);
@@ -150,9 +153,9 @@ function AttachmentList({ attachments = [] }) {
                 {name}
               </p>
 
-              {attachment.size != null && (
+              {size != null && (
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {formatFileSize(attachment.size)}
+                  {formatFileSize(size)}
                 </p>
               )}
             </div>

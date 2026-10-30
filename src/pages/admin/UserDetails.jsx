@@ -482,7 +482,7 @@ export default function UserDetails() {
                   className={`self-start rounded-full border px-2.5 py-1 text-xs font-semibold ${
                     String(project.status || '').toLowerCase() === 'completed'
                       ? 'border-violet-400/30 bg-violet-500/15 text-violet-200'
-                      : ['published', 'active', 'in_progress'].includes(
+                      : ['published', 'active', 'in_progress', 'in progress'].includes(
                             String(project.status || '').toLowerCase()
                           )
                         ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'

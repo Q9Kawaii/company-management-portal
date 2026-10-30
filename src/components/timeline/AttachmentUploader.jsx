@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import { uploadAttachment } from '../../services/storageService';
 
 const DEFAULT_MAX_SIZE_MB = 10;
@@ -230,18 +229,24 @@ export default function AttachmentUploader({
     handleFilesSelected(event.dataTransfer.files);
   };
 
+  // With no entryId (the composer, before the post exists) the files can't be
+  // stored yet, so they are handed to onUpload as File objects and uploaded
+  // by the timeline service once the entry has been created.
+  const isDeferred = !entryId;
+
   const handleUpload = async () => {
-    if (
-      disabled ||
-      uploading ||
-      selectedFiles.length === 0 ||
-      !projectId ||
-      !timelineId ||
-      !entryId
-    ) {
-      if (!projectId || !timelineId || !entryId) {
-        setError('Project, timeline, and entry IDs are required.');
-      }
+    if (disabled || uploading || selectedFiles.length === 0) return;
+
+    if (isDeferred) {
+      await onUpload?.(selectedFiles.map((item) => item.file));
+      setSelectedFiles([]);
+      setProgress({});
+      setError('');
+      return;
+    }
+
+    if (!projectId || !timelineId) {
+      setError('Project and timeline IDs are required.');
       return;
     }
 
@@ -629,7 +634,7 @@ export default function AttachmentUploader({
 
             {uploading
               ? 'Uploading files...'
-              : `Upload ${selectedFiles.length} file(s)`}
+              : `${isDeferred ? 'Attach' : 'Upload'} ${selectedFiles.length} file(s)`}
           </button>
         </div>
       )}

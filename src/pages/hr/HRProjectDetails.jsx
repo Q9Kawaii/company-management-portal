@@ -27,6 +27,7 @@ const getStatusStyles = (status) => {
     case 'published':
     case 'active':
     case 'in_progress':
+    case 'in progress':
       return 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200';
     case 'draft':
       return 'border-amber-400/30 bg-amber-500/15 text-amber-200';
@@ -256,20 +257,8 @@ export default function HRProjectDetails() {
   setActionLoading(true);
 
   try {
-    const { data: membershipData, error: membershipError } = await supabase
-      .from('project_members')
-      .select('user_id')
-      .eq('project_id', project.id);
-
-    if (membershipError) throw membershipError;
-
-    const profileIds = [
-      ...new Set([
-        ...(membershipData || []).map((membership) => membership.user_id),
-        ...(project.lead_id ? [project.lead_id] : []),
-      ]),
-    ];
-
+    // Archiving frees the team: a database trigger recalculates
+    // profiles.assigned for everyone on the project.
     const { error: updateError } = await supabase
       .from('projects')
       .update({
@@ -279,45 +268,6 @@ export default function HRProjectDetails() {
       .eq('id', project.id);
 
     if (updateError) throw updateError;
-
-    if (profileIds.length > 0) {
-      const { data: remainingMemberships, error: remainingMembershipsError } =
-        await supabase
-          .from('project_members')
-          .select('user_id')
-          .in('user_id', profileIds)
-          .neq('project_id', project.id);
-
-      if (remainingMembershipsError) throw remainingMembershipsError;
-
-      const { data: remainingLeadProjects, error: remainingLeadError } =
-        await supabase
-          .from('projects')
-          .select('lead_id')
-          .in('lead_id', profileIds)
-          .neq('id', project.id)
-          .neq('status', 'Archived');
-
-      if (remainingLeadError) throw remainingLeadError;
-
-      const stillAssigned = new Set([
-        ...(remainingMemberships || []).map((membership) => membership.user_id),
-        ...(remainingLeadProjects || []).map((otherProject) => otherProject.lead_id),
-      ]);
-
-      const profilesToUnassign = profileIds.filter(
-        (profileId) => !stillAssigned.has(profileId)
-      );
-
-      if (profilesToUnassign.length > 0) {
-        const { error: profileUpdateError } = await supabase
-          .from('profiles')
-          .update({ assigned: false })
-          .in('id', profilesToUnassign);
-
-        if (profileUpdateError) throw profileUpdateError;
-      }
-    }
 
     notifications.success('Project archived.');
     setArchiveDialogOpen(false);
@@ -391,16 +341,7 @@ export default function HRProjectDetails() {
 
     if (updateError) throw updateError;
 
-    // Mark this project's members and lead as assigned
-    if (profileIds.length > 0) {
-      const { error: profileUpdateError } = await supabase
-        .from('profiles')
-        .update({ assigned: true })
-        .in('id', profileIds);
-
-      if (profileUpdateError) throw profileUpdateError;
-    }
-
+    // The assignment trigger marks this project's team as assigned again.
     notifications.success('Project restored and team members assigned.');
     setRestoreDialogOpen(false);
     await loadProject();
@@ -420,62 +361,19 @@ export default function HRProjectDetails() {
   setActionLoading(true);
 
   try {
-    const { data: membershipData, error: membershipError } = await supabase
-      .from('project_members')
-      .select('user_id')
-      .eq('project_id', project.id);
-
-    if (membershipError) throw membershipError;
-
-    const profileIds = [
-      ...new Set([
-        ...(membershipData || []).map((membership) => membership.user_id),
-        ...(project.lead_id ? [project.lead_id] : []),
-      ]),
-    ];
-
-    const { error: deleteError } = await supabase
+    // Memberships are removed by ON DELETE CASCADE, and the assignment
+    // trigger frees the team as they go.
+    const { data: deleted, error: deleteError } = await supabase
       .from('projects')
       .delete()
-      .eq('id', project.id);
+      .eq('id', project.id)
+      .select('id');
 
     if (deleteError) throw deleteError;
 
-    if (profileIds.length > 0) {
-      const { data: remainingMemberships, error: remainingMembershipsError } =
-        await supabase
-          .from('project_members')
-          .select('user_id')
-          .in('user_id', profileIds);
-
-      if (remainingMembershipsError) throw remainingMembershipsError;
-
-      const { data: remainingLeadProjects, error: remainingLeadError } =
-        await supabase
-          .from('projects')
-          .select('lead_id')
-          .in('lead_id', profileIds)
-          .neq('status', 'Archived');
-
-      if (remainingLeadError) throw remainingLeadError;
-
-      const stillAssigned = new Set([
-        ...(remainingMemberships || []).map((membership) => membership.user_id),
-        ...(remainingLeadProjects || []).map((otherProject) => otherProject.lead_id),
-      ]);
-
-      const profilesToUnassign = profileIds.filter(
-        (profileId) => !stillAssigned.has(profileId)
-      );
-
-      if (profilesToUnassign.length > 0) {
-        const { error: profileUpdateError } = await supabase
-          .from('profiles')
-          .update({ assigned: false })
-          .in('id', profilesToUnassign);
-
-        if (profileUpdateError) throw profileUpdateError;
-      }
+    // RLS filters rows the user may not delete instead of raising an error.
+    if (!deleted?.length) {
+      throw new Error('You do not have permission to delete this project.');
     }
 
     notifications.success('Project deleted successfully.');

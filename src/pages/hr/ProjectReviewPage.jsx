@@ -135,7 +135,7 @@ export default function ProjectReviewPage() {
           published_by: user?.id || null,
         })
         .eq('id', project.id)
-        .eq('status', 'draft')
+        .eq('status', 'Draft')
         .select()
         .maybeSingle();
 
@@ -152,7 +152,7 @@ export default function ProjectReviewPage() {
           user_id: member.id,
           title: 'New project assigned',
           message: `You have been assigned to the project "${project.name}".`,
-          type: 'project',
+          type: 'info',
           project_id: project.id,
           is_read: false,
         }));
@@ -222,7 +222,7 @@ export default function ProjectReviewPage() {
     );
   }
 
-  const isDraft = project.status === 'draft';
+  const isDraft = String(project.status || '').toLowerCase() === 'draft';
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8 lg:px-8">

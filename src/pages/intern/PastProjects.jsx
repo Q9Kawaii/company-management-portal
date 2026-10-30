@@ -37,8 +37,8 @@ export default function PastProjects() {
       try {
         const { data: memberships, error: membershipError } = await supabase
           .from('project_members')
-          .select('project_id, user_id, profile_id')
-          .or(`user_id.eq.${user.id},profile_id.eq.${user.id}`);
+          .select('project_id, user_id')
+          .eq('user_id', user.id);
 
         if (membershipError) throw membershipError;
 
@@ -50,7 +50,7 @@ export default function PastProjects() {
           .from('projects')
           .select('*')
           .eq('lead_id', user.id)
-          .in('status', ['completed', 'archived']);
+          .in('status', ['Completed', 'Archived']);
 
         if (leadError) throw leadError;
 
@@ -61,7 +61,7 @@ export default function PastProjects() {
             .from('projects')
             .select('*')
             .in('id', memberProjectIds)
-            .in('status', ['completed', 'archived']);
+            .in('status', ['Completed', 'Archived']);
 
           if (error) throw error;
           memberProjects = data || [];
@@ -89,9 +89,7 @@ export default function PastProjects() {
           const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
             .select('id, user_id, name, email, role')
-            .or(
-              `id.in.(${leadIds.join(',')}),user_id.in.(${leadIds.join(',')})`
-            );
+            .in('id', leadIds);
 
           if (profilesError) {
             console.warn('Unable to load project leads:', profilesError);

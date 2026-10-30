@@ -207,7 +207,7 @@ export default function ManageProjects() {
     () => ({
       total: projects.length,
       published: projects.filter((project) =>
-        ['published', 'active'].includes(project.status)
+        ['published', 'active', 'in progress'].includes(project.status)
       ).length,
       drafts: projects.filter((project) => project.status === 'draft').length,
       completed: projects.filter((project) => project.status === 'completed').length,
@@ -603,7 +603,7 @@ export default function ManageProjects() {
                     </button>
                   )}
 
-                  {['published', 'active'].includes(project.status) && (
+                  {['published', 'active', 'in progress'].includes(project.status) && (
                     <button
                       type="button"
                       disabled={updating}

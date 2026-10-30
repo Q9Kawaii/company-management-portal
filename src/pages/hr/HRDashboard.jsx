@@ -203,7 +203,7 @@ export default function HRDashboard() {
     );
 
     const publishedProjects = projects.filter((project) =>
-      ['published', 'active', 'in_progress'].includes(
+      ['published', 'active', 'in_progress', 'in progress'].includes(
         String(project.status || '').toLowerCase()
       )
     );

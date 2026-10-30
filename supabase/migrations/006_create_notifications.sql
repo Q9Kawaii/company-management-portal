@@ -16,27 +16,11 @@ CREATE TABLE IF NOT EXISTS public.notifications (
         CHECK (type IN ('info', 'success', 'warning', 'error')),
 
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    read_at TIMESTAMPTZ,
 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT notifications_title_not_empty
-        CHECK (LENGTH(TRIM(title)) > 0),
-
-    CONSTRAINT notifications_message_not_empty
-        CHECK (LENGTH(TRIM(message)) > 0)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id
-    ON public.notifications(user_id);
-
-CREATE INDEX IF NOT EXISTS idx_notifications_project_id
-    ON public.notifications(project_id);
-
-CREATE INDEX IF NOT EXISTS idx_notifications_unread
-    ON public.notifications(user_id, is_read, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_notifications_created_at
-    ON public.notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user
+    ON public.notifications(user_id, created_at DESC);

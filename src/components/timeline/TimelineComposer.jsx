@@ -3,7 +3,6 @@ import AttachmentUploader from './AttachmentUploader';
 
 export default function TimelineComposer({
   onSubmit,
-  onUpload,
   loading = false,
   projectId,
   timelineId,

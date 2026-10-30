@@ -9,8 +9,6 @@ import {
   deleteTimelineEntry,
 } from '../services/timelineService';
 
-import { uploadAttachment as uploadFile } from '../services/storageService';
-
 export default function useTimeline(projectId, timelineId) {
   const { user } = useAuth();
   const { error, success } = useNotifications();
@@ -74,7 +72,6 @@ export default function useTimeline(projectId, timelineId) {
           ...payload,
           projectId,
           timelineId,
-          authorId: user.id,
         });
 
         const createdEntry = result?.data ?? result;
@@ -108,8 +105,10 @@ export default function useTimeline(projectId, timelineId) {
     [user?.id, projectId, timelineId, success, error]
   );
 
+  // Accepts either a plain string or the `{ content, text }` payload that
+  // TimelineEntry sends.
   const replyToEntry = useCallback(
-    async (entryId, content) => {
+    async (entryId, payload) => {
       if (!user?.id) {
         return {
           success: false,
@@ -117,7 +116,12 @@ export default function useTimeline(projectId, timelineId) {
         };
       }
 
-      if (!entryId || !content?.trim()) {
+      const content =
+        typeof payload === 'string'
+          ? payload
+          : payload?.content || payload?.text || '';
+
+      if (!entryId || !content.trim()) {
         return {
           success: false,
           error: 'An entry ID and reply content are required.',
@@ -128,9 +132,9 @@ export default function useTimeline(projectId, timelineId) {
       setErrorMessage('');
 
       try {
-        const result = await replyToTimelineEntry(entryId, {
+        const result = await replyToTimelineEntry({
+          entryId,
           content: content.trim(),
-          authorId: user.id,
           projectId,
           timelineId,
         });
@@ -216,68 +220,6 @@ export default function useTimeline(projectId, timelineId) {
     [success, error]
   );
 
-  const uploadAttachment = useCallback(
-    async (entryId, files) => {
-      if (!projectId || !timelineId || !entryId) {
-        return {
-          success: false,
-          error: 'Project, timeline, and entry are required to upload files.',
-        };
-      }
-
-      const fileList = Array.isArray(files) ? files : Array.from(files || []);
-
-      if (fileList.length === 0) {
-        return {
-          success: false,
-          error: 'Select at least one file to upload.',
-        };
-      }
-
-      setActionLoading(true);
-      setErrorMessage('');
-
-      try {
-        const uploadedFiles = [];
-
-        for (const file of fileList) {
-          if (!file) continue;
-
-          const result = await uploadFile({
-            file,
-            projectId,
-            timelineId,
-            entryId,
-          });
-
-          uploadedFiles.push(result?.data ?? result);
-        }
-
-        await fetchEntries();
-
-        success('Attachments uploaded successfully.');
-
-        return {
-          success: true,
-          attachments: uploadedFiles,
-        };
-      } catch (err) {
-        const message = err?.message || 'Failed to upload attachment.';
-
-        setErrorMessage(message);
-        error(message);
-
-        return {
-          success: false,
-          error: message,
-        };
-      } finally {
-        setActionLoading(false);
-      }
-    },
-    [projectId, timelineId, fetchEntries, success, error]
-  );
-
   useEffect(() => {
     fetchEntries();
   }, [fetchEntries]);
@@ -295,7 +237,6 @@ export default function useTimeline(projectId, timelineId) {
     createEntry,
     replyToEntry,
     deleteEntry,
-    uploadAttachment,
     refresh: fetchEntries,
     setEntries,
     clearError,

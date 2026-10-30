@@ -168,7 +168,7 @@ export default function AdminDashboard() {
           activeUsers,
           inactiveUsers: profiles.length - activeUsers,
           activeProjects: projects.filter((project) =>
-            ['published', 'active', 'in_progress'].includes(
+            ['published', 'active', 'in_progress', 'in progress'].includes(
               String(project.status || '').toLowerCase()
             )
           ).length,
@@ -421,7 +421,7 @@ export default function AdminDashboard() {
 
                   <span
                     className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${
-                      ['published', 'active', 'in_progress'].includes(
+                      ['published', 'active', 'in_progress', 'in progress'].includes(
                         String(project.status || '').toLowerCase()
                       )
                         ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'

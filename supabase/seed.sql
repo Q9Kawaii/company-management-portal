@@ -1,7 +1,9 @@
 -- supabase/seed.sql
--- Seeds the initial user ID counters.
--- Create the first Admin account through Supabase Authentication,
--- then insert its matching profile using the authenticated user's UUID.
+-- Seeds the user ID counters and shows how to create the first Admin.
+--
+-- Every other account is created from the portal through the create-user
+-- Edge Function, which also creates the Supabase Auth user. The first
+-- Admin has to be created by hand because no one can sign in yet.
 
 INSERT INTO public.user_id_counters (role_prefix, last_value)
 VALUES
@@ -11,15 +13,15 @@ VALUES
     ('INT', 0)
 ON CONFLICT (role_prefix) DO NOTHING;
 
--- Example: Create the first Admin profile after creating the
--- corresponding user in Supabase Authentication.
---
--- Replace the UUID and email below with the actual Auth user's details.
--- Uncomment and edit this block before running it.
+-- 1. In the Supabase dashboard, open Authentication -> Users and create a
+--    user with an email and password.
+-- 2. Replace the UUID and email below with that user's details, uncomment
+--    the block, and run it.
+-- 3. Sign in to the portal with company ID ADM0001 and that password.
 --
 -- INSERT INTO public.profiles (
 --     id,
---     user_code,
+--     user_id,
 --     name,
 --     email,
 --     role,
@@ -36,3 +38,8 @@ ON CONFLICT (role_prefix) DO NOTHING;
 --     TRUE
 -- )
 -- ON CONFLICT (id) DO NOTHING;
+--
+-- -- Keep the ADM counter in step with the ID used above.
+-- UPDATE public.user_id_counters
+-- SET last_value = GREATEST(last_value, 1)
+-- WHERE role_prefix = 'ADM';

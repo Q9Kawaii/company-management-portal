@@ -26,7 +26,6 @@ export default function CurrentProject() {
   const [lead, setLead] = useState(null);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTimeline, setActiveTimeline] = useState('main');
   const [refreshing, setRefreshing] = useState(false);
 
   const loadCurrentProject = useCallback(async (showLoader = true) => {
@@ -41,8 +40,8 @@ export default function CurrentProject() {
     try {
       const { data: memberships, error: membershipError } = await supabase
         .from('project_members')
-        .select('project_id, user_id, profile_id, role')
-        .or(`user_id.eq.${user.id},profile_id.eq.${user.id}`);
+        .select('project_id, user_id, role')
+        .eq('user_id', user.id);
 
       if (membershipError) throw membershipError;
 
@@ -54,7 +53,7 @@ export default function CurrentProject() {
         .from('projects')
         .select('*')
         .eq('lead_id', user.id)
-        .in('status', ['published', 'active', 'in_progress']);
+        .in('status', ['Published', 'In Progress']);
 
       if (leadError) throw leadError;
 
@@ -65,7 +64,7 @@ export default function CurrentProject() {
           .from('projects')
           .select('*')
           .in('id', memberProjectIds)
-          .in('status', ['published', 'active', 'in_progress']);
+          .in('status', ['Published', 'In Progress']);
 
         if (error) throw error;
         memberProjects = data || [];
@@ -95,7 +94,7 @@ export default function CurrentProject() {
       const { data: projectMemberships, error: projectMembershipError } =
         await supabase
           .from('project_members')
-          .select('project_id, user_id, profile_id, role')
+          .select('project_id, user_id, role')
           .eq('project_id', selectedProject.id);
 
       if (projectMembershipError) throw projectMembershipError;
@@ -103,9 +102,7 @@ export default function CurrentProject() {
       const memberIds = new Set(
         (projectMemberships || [])
           .flatMap((membership) => [
-            membership.user_id,
-            membership.profile_id,
-          ])
+            membership.user_id,          ])
           .filter(Boolean)
       );
 
@@ -117,7 +114,8 @@ export default function CurrentProject() {
         .from('profiles')
         .select(
           'id, user_id, name, email, role, department, is_active'
-        );
+        )
+          .in('id', [...memberIds]);
 
       if (profilesError) throw profilesError;
 
@@ -419,43 +417,15 @@ export default function CurrentProject() {
         <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg shadow-black/10">
           <div className="border-b border-slate-800 p-4 sm:p-6">
             <h2 className="text-lg font-semibold tracking-tight text-white">
-              Project Timelines
+              Project Timeline
             </h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
               Follow project updates, reply to team posts and share progress
               with your team.
             </p>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTimeline('main')}
-                className={`min-h-11 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                  activeTimeline === 'main'
-                    ? 'border border-indigo-400/30 bg-indigo-500/15 text-indigo-200'
-                    : 'border border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                Team Timeline
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTimeline('staff')}
-                className={`min-h-11 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                  activeTimeline === 'staff'
-                    ? 'border border-indigo-400/30 bg-indigo-500/15 text-indigo-200'
-                    : 'border border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                Staff Timeline
-                <span className="ml-2 text-xs font-medium text-slate-400">
-                  Read only
-                </span>
-              </button>
-            </div>
           </div>
 
+          {/* The Staff timeline is Admin/HR only, so interns get just the Main timeline. */}
           {!canAccessProject && !isStaff ? (
             <div className="m-4 rounded-xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm leading-6 text-rose-200 sm:m-6">
               You are not assigned to this project and cannot access its
@@ -464,11 +434,10 @@ export default function CurrentProject() {
           ) : (
             <div className="min-w-0 p-4 sm:p-6">
               <Timeline
-                key={`${project.id}-${activeTimeline}`}
+                key={project.id}
                 projectId={project.id}
-                timelineId={activeTimeline}
-                timelineType={activeTimeline}
-                readOnly={activeTimeline === 'staff' && !isStaff}
+                timelineId="main"
+                timelineType="main"
               />
             </div>
           )}

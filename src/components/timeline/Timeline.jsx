@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import useTimeline from '../../hooks/useTimeline';
 import TimelineComposer from './TimelineComposer';
@@ -17,15 +17,15 @@ export default function Timeline({
 }) {
   const { user } = useAuth();
 
+  // The hook loads entries itself whenever the project or timeline changes.
   const {
     entries = [],
     loading = false,
-    error = '',
+    errorMessage: error = '',
     fetchEntries,
     createEntry,
     replyToEntry,
     deleteEntry,
-    uploadAttachment,
     refresh,
   } = useTimeline(projectId, timelineId);
 
@@ -65,9 +65,13 @@ export default function Timeline({
     }
   }, [refresh, fetchEntries]);
 
-  useEffect(() => {
-    loadEntries();
-  }, [loadEntries]);
+  // useTimeline reports failures as `{ success: false }` rather than throwing.
+  // Re-throw so the composer keeps the user's text and shows the error.
+  const ensureSuccess = (result) => {
+    if (result?.success === false) {
+      throw new Error(result.error || 'Something went wrong.');
+    }
+  };
 
   const handleCreateEntry = async (payload) => {
     if (!canWrite || submitting) return;
@@ -76,7 +80,7 @@ export default function Timeline({
     setActionError('');
 
     try {
-      await createEntry(payload);
+      ensureSuccess(await createEntry(payload));
       await loadEntries();
     } catch (submitError) {
       setActionError(
@@ -95,7 +99,7 @@ export default function Timeline({
     setActionError('');
 
     try {
-      await replyToEntry(entryId, payload);
+      ensureSuccess(await replyToEntry(entryId, payload));
       await loadEntries();
     } catch (replyError) {
       setActionError(replyError?.message || 'Unable to submit your reply.');
@@ -105,22 +109,9 @@ export default function Timeline({
     }
   };
 
-  const handleUploadAttachment = async (entryId, files) => {
-    if (!canWrite || submitting || !uploadAttachment) return;
-
-    setSubmitting(true);
-    setActionError('');
-
-    try {
-      await uploadAttachment(entryId, files);
-      await loadEntries();
-    } catch (uploadError) {
-      setActionError(uploadError?.message || 'Unable to upload attachments.');
-      throw uploadError;
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // AttachmentUploader has already stored the files and their records by the
+  // time this runs, so only the list needs refreshing.
+  const handleAttachmentsUploaded = () => loadEntries();
 
   const handleDeleteEntry = async (entryId) => {
     if (!canWrite || submitting || !deleteEntry) return;
@@ -129,7 +120,7 @@ export default function Timeline({
     setActionError('');
 
     try {
-      await deleteEntry(entryId);
+      ensureSuccess(await deleteEntry(entryId));
       await loadEntries();
     } catch (deleteError) {
       setActionError(deleteError?.message || 'Unable to delete this entry.');
@@ -177,7 +168,7 @@ export default function Timeline({
 
           <p className="mt-1.5 max-w-2xl text-sm leading-5 text-slate-300">
             {isStaffTimeline
-              ? 'Internal updates visible to project members.'
+              ? 'Internal updates visible to Admin and HR only.'
               : 'Updates, discussions, and attachments for this project.'}
           </p>
         </div>
@@ -240,7 +231,6 @@ export default function Timeline({
       {canWrite && (
         <TimelineComposer
           onSubmit={handleCreateEntry}
-          onUpload={handleUploadAttachment}
           loading={submitting}
           projectId={projectId}
           timelineId={timelineId}
@@ -346,9 +336,7 @@ export default function Timeline({
                   readOnly={!canWrite}
                   onReply={(payload) => handleReply(entryId, payload)}
                   onDelete={() => handleDeleteEntry(entryId)}
-                  onUpload={(files) =>
-                    handleUploadAttachment(entryId, files)
-                  }
+                  onUpload={handleAttachmentsUploaded}
                   loading={submitting}
                 />
               </div>

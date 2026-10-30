@@ -52,7 +52,6 @@ export default function CurrentProject() {
   const [teamLead, setTeamLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
-  const [activeTimeline, setActiveTimeline] = useState('main');
 
   const loadCurrentProject = useCallback(async () => {
     if (!user?.id) {
@@ -93,7 +92,7 @@ export default function CurrentProject() {
 
       const currentProject =
         uniqueProjects.find((item) =>
-          ['published', 'active', 'in_progress'].includes(
+          ['published', 'active', 'in_progress', 'in progress'].includes(
             String(item.status || '').toLowerCase()
           )
         ) || null;
@@ -217,9 +216,6 @@ export default function CurrentProject() {
   }
 
   const canWriteMainTimeline = true;
-  const canWriteStaffTimeline = ['admin', 'hr'].includes(
-    String(user?.role || '').toLowerCase()
-  );
 
   const projectMembers = members.filter((member) => member.id !== teamLead?.id);
 
@@ -426,77 +422,24 @@ export default function CurrentProject() {
           <p className="mt-1 text-sm text-slate-400">
             Share updates, attach screenshots, and respond to team progress.
           </p>
-
-          <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Project timelines">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTimeline === 'main'}
-              onClick={() => setActiveTimeline('main')}
-              className={`min-h-11 rounded-t-xl border px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                activeTimeline === 'main'
-                  ? 'border-indigo-400/30 border-b-slate-900 bg-indigo-500/10 text-indigo-200'
-                  : 'border-transparent bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-              }`}
-            >
-              Team Timeline
-            </button>
-
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTimeline === 'staff'}
-              onClick={() => setActiveTimeline('staff')}
-              className={`min-h-11 rounded-t-xl border px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                activeTimeline === 'staff'
-                  ? 'border-indigo-400/30 border-b-slate-900 bg-indigo-500/10 text-indigo-200'
-                  : 'border-transparent bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-              }`}
-            >
-              Staff Timeline
-              <span className="ml-2 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-200">
-                View only
-              </span>
-            </button>
-          </div>
         </div>
 
+        {/* The Staff timeline is Admin/HR only, so team members get just the Main timeline. */}
         <div className="p-4 sm:p-6">
-          {activeTimeline === 'main' ? (
-            <>
-              <TimelineVisibilityNotice
-                timelineType="main"
-                userRole={user?.role || 'Employee'}
-                readOnly={!canWriteMainTimeline}
-              />
+          <TimelineVisibilityNotice
+            timelineType="main"
+            userRole={user?.role || 'Employee'}
+            readOnly={!canWriteMainTimeline}
+          />
 
-              <div className="mt-5">
-                <Timeline
-                  projectId={project.id}
-                  timelineId="main"
-                  timelineType="main"
-                  readOnly={!canWriteMainTimeline}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <TimelineVisibilityNotice
-                timelineType="staff"
-                userRole={user?.role || 'Employee'}
-                readOnly={!canWriteStaffTimeline}
-              />
-
-              <div className="mt-5">
-                <Timeline
-                  projectId={project.id}
-                  timelineId="staff"
-                  timelineType="staff"
-                  readOnly={!canWriteStaffTimeline}
-                />
-              </div>
-            </>
-          )}
+          <div className="mt-5">
+            <Timeline
+              projectId={project.id}
+              timelineId="main"
+              timelineType="main"
+              readOnly={!canWriteMainTimeline}
+            />
+          </div>
         </div>
       </section>
     </div>
